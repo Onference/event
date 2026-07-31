@@ -95,7 +95,7 @@ app.get('/api/user/:event',async(req,res)=>{
 })
 //event body
 app.post("/api/user", async (req, res) => {
-  const { email,fullname,mobileno,event,...rest } = req.body;
+  const { email,mobileno,event,...rest } = req.body;
 
   try {
 
@@ -113,7 +113,7 @@ app.post("/api/user", async (req, res) => {
       return res.status(409).json({ status: "success", message: "User Already Exists" });
     }
 
-   await User.create({ email,fullname,mobileno,event,...rest });
+   await User.create({ email,mobileno,event,...rest });
     res.status(201).json({
       status: "success",
       message: "User created"
