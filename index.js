@@ -1,9 +1,10 @@
+import 'dotenv/config'
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import axios from "axios";
-dotenv.config();
+import {sendRegistrationEmail} from './sendEmail.js'
 
 const app = express();
 const PORT = process.env.PORT 
@@ -113,11 +114,19 @@ app.post("/api/user", async (req, res) => {
       return res.status(409).json({ status: "success", message: "User Already Exists" });
     }
 
-   await User.create({ email,mobileno,event,...rest });
+    const user = await User.create({ email,mobileno,event,...rest });
+
+    if (email) {
+      sendRegistrationEmail(email, user.name).catch((err) => {
+        console.error("Amazon SES Email Error : ", err);
+      });
+    }
+
     res.status(201).json({
       status: "success",
       message: "User created"
     });
+    
   } catch (err) {
    return res.status(500).json({ status: "error", message:err.message });
   }
@@ -265,5 +274,4 @@ app.get("/api", (req, res) => {
 
 app.listen(PORT, () => {
   connectDB();
-  console.log(`Server Started Successfully on PORT : ${PORT}`);
 });
