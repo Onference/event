@@ -117,8 +117,8 @@ app.post("/api/user", async (req, res) => {
     const user = await User.create({ email,mobileno,event,...rest });
 
     if (email) {
-      sendRegistrationEmail(email, user.name).catch((err) => {
-        console.error("Amazon SES Email Error : ", err);
+      sendRegistrationEmail(email, user.fullname, user.salutation).catch((err) => {
+        console.error("Error sending Email via Nodemailer : ", err);
       });
     }
 
