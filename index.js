@@ -62,9 +62,26 @@ const activitySchema = new mongoose.Schema({
   user: {type:mongoose.Schema.Types.ObjectId,ref:'User'},
   firstLogin: { type: String },
   lastLogin: { type: String },
-  firstView: { type: String },
-  lastView: { type: String },
-  stalls: { type: [String], default: [] },
+  auditorium: [ { inTime: { type: String }, outTime: { type: String } } ],
+  stalls: [
+  {
+    stall: {
+      type: String
+    },
+
+    visits: [
+      {
+        inTime: {
+          type: String
+        },
+
+        outTime: {
+          type: String
+        }
+      }
+    ]
+  }
+],
   event:{type:String}
 }
 ,
@@ -151,7 +168,16 @@ app.get('/api/activity/:event',async(req,res)=>{
 //event body
 app.post("/api/activity", async (req, res) => {
   try {
-    const { loginTime, viewTime, stall, event, user } = req.body;
+    const {
+      loginTime,
+      viewIn,
+      viewOut,
+      stallIn,
+      stallOut,
+      stall,
+      event,
+      user,
+    } = req.body;
 
     const time = getISTTime();
 
@@ -160,7 +186,9 @@ app.post("/api/activity", async (req, res) => {
     if (!activity) {
       activity = new Activity({
         user,
-        event
+        event,
+        auditorium: [],
+        stalls: [],
       });
     }
 
@@ -171,33 +199,84 @@ app.post("/api/activity", async (req, res) => {
       activity.lastLogin = time;
     }
 
-    if (viewTime) {
-      if (!activity.firstView) {
-        activity.firstView = time;
-      }
-      activity.lastView = time;
+    if (viewIn) {
+      activity.auditorium.push({
+        inTime: time,
+      });
     }
 
-    if (stall) {
-      if (!activity.stalls.includes(stall)) {
-        activity.stalls.push(stall);
+    if (viewOut) {
+      const lastVisit = activity.auditorium.at(-1);
+
+      if (!lastVisit || lastVisit.outTime) {
+        return res.status(400).json({
+          status: "error",
+          message: "No Open Auditorium Visit",
+        });
       }
+
+      lastVisit.outTime = time;
+    }
+
+    if (stallIn) {
+      let stallActivity = activity.stalls.find(
+        (s) => s.stall === stall
+      );
+
+      if (!stallActivity) {
+        stallActivity = {
+          stall,
+          visits: [{ inTime: time }],
+        };
+        activity.stalls.push(stallActivity);
+      } else {
+        stallActivity.visits.push({
+          inTime: time,
+        });
+      }
+
+      activity.markModified("stalls");
+    }
+
+    if (stallOut) {
+      const stallActivity = activity.stalls.find(
+        (s) => s.stall === stall
+      );
+
+      if (!stallActivity) {
+        return res.status(400).json({
+          status: "error",
+          message: `No Activity Stall for ${stall}`,
+        });
+      }
+
+      const lastVisit = stallActivity.visits.at(-1);
+
+      if (!lastVisit || lastVisit.outTime) {
+        return res.status(400).json({
+          status: "error",
+          message: `No Open Stall Visit for ${stall}`,
+        });
+      }
+
+      lastVisit.outTime = time;
+      activity.markModified("stalls");
     }
 
     await activity.save();
 
     return res.status(202).json({
       status: "success",
-      message: "Activity Updated"
+      message: "Activity Updated",
     });
-
   } catch (err) {
     return res.status(500).json({
       status: "error",
-      message: err.message
+      message: err.message,
     });
   }
 });
+
 
 app.post("/api/user/status", async (req, res) => {
   try {
