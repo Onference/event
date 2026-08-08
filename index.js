@@ -208,14 +208,10 @@ app.post("/api/activity", async (req, res) => {
     if (viewOut) {
       const lastVisit = activity.auditorium.at(-1);
 
-      if (!lastVisit || lastVisit.outTime) {
-        return res.status(400).json({
-          status: "error",
-          message: "No Open Auditorium Visit",
-        });
+    if (lastVisit && !lastVisit.outTime) {
+        lastVisit.outTime = time;
+        activity.markModified("auditorium");
       }
-
-      lastVisit.outTime = time;
     }
 
     if (stallIn) {
@@ -243,24 +239,13 @@ app.post("/api/activity", async (req, res) => {
         (s) => s.stall === stall
       );
 
-      if (!stallActivity) {
-        return res.status(400).json({
-          status: "error",
-          message: `No Activity Stall for ${stall}`,
-        });
+      if (stallActivity) {
+        const lastVisit = stallActivity.visits.at(-1);
+        if (lastVisit && !lastVisit.outTime) {
+          lastVisit.outTime = time;
+          activity.markModified("stalls");
+        }
       }
-
-      const lastVisit = stallActivity.visits.at(-1);
-
-      if (!lastVisit || lastVisit.outTime) {
-        return res.status(400).json({
-          status: "error",
-          message: `No Open Stall Visit for ${stall}`,
-        });
-      }
-
-      lastVisit.outTime = time;
-      activity.markModified("stalls");
     }
 
     await activity.save();
