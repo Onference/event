@@ -4,7 +4,13 @@ import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import axios from "axios";
-import {sendRegistrationEmail} from './sendEmail.js'
+import {sendRegistrationEmail,sendReminderEmail} from './sendEmail.js'
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT 
@@ -270,6 +276,70 @@ app.post("/api/auth", async (req, res) => {
 
 app.get("/api", (req, res) => {
   res.status(200).send("Om Ganeshaay Namah");
+});
+
+
+app.post("/api/users/send-reminder-email", async (req, res) => {
+  try {
+    const users = await User.find({
+      email: { $exists: true, $ne: "" }
+    }).lean();
+
+    if (!users.length) {
+      return res.status(404).json({
+        status: "error",
+        message: "No users with email found."
+      });
+    }
+
+    const failedFile = path.join(__dirname, "failed-emails.txt");
+
+    await fs.writeFile(failedFile, "");
+
+    let successCount = 0;
+    const failed = [];
+
+    for (const user of users) {
+      try {
+        await sendReminderEmail(
+          user.email,
+          user.fullname,
+          user.salutation
+        );
+
+        successCount++;
+        console.log(`✅ Email sent to ${user.email}`);
+      } catch (err) {
+        console.error(`❌ Failed for ${user.email}: ${err.message}`);
+
+        failed.push({
+          email: user.email,
+          error: err.message
+        });
+
+        await fs.appendFile(
+          failedFile,
+          `[${new Date().toISOString()}] ${user.email} | ${err.message}\n`,
+          "utf8"
+        );
+      }
+    }
+
+    return res.status(200).json({
+      status: "success",
+      totalUsers: users.length,
+      emailsSent: successCount,
+      failedCount: failed.length,
+      failedLog: failed.length ? failedFile : null,
+      failed
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      status: "error",
+      message: err.message
+    });
+  }
 });
 
 app.listen(PORT, () => {

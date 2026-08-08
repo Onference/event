@@ -19,7 +19,6 @@ export async function sendRegistrationEmail(toEmail, name, salutation) {
     let htmlTemplate = fs.readFileSync(filePath, 'utf8');
 
     htmlTemplate = htmlTemplate
-      .replace(/{{Email}}/g, toEmail)
       .replace(/{{Salutation}}/g, salutation)
       .replace(/{{Full Name}}/g, name);
 
@@ -27,6 +26,29 @@ export async function sendRegistrationEmail(toEmail, name, salutation) {
       from: `"Onference" <${process.env.FROM_EMAIL}>`,
       to: toEmail,
       subject: process.env.REGISTRATION_SUCCESS_EMAIL_SUBJECT,
+      html: htmlTemplate,
+    });
+
+  } catch (error) {
+    console.error("Error sending Email via Nodemailer : ", error);
+    throw error;
+  }
+}
+
+export async function sendReminderEmail(toEmail, name, salutation) {
+  try {
+   
+    const filePath = path.join(process.cwd(),'Reminder_To_Join.html');
+    let htmlTemplate = fs.readFileSync(filePath, 'utf8');
+
+    htmlTemplate = htmlTemplate
+      .replace(/{{Salutation}}/g, salutation)
+      .replace(/{{Full Name}}/g, name);
+
+    await transporter.sendMail({ 
+      from: `"Onference" <${process.env.FROM_EMAIL}>`,
+      to: toEmail,
+      subject: process.env.REMINDER_EMAIL_SUBJECT,
       html: htmlTemplate,
     });
 
